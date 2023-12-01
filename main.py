@@ -1,84 +1,86 @@
 from random import randint
 
 
-def fifo(referencias_pagina, num_quadros):
-  faltas_pagina = 0
-  conjunto_quadros = set()
-  fila_paginas = []
-
-  for pagina in referencias_pagina:
-    if pagina not in conjunto_quadros:
-      faltas_pagina += 1
-      if len(conjunto_quadros) < num_quadros:
-        conjunto_quadros.add(pagina)
-        fila_paginas.append(pagina)
-      else:
-        pagina_removida = fila_paginas.pop(0)
-        conjunto_quadros.remove(pagina_removida)
-        conjunto_quadros.add(pagina)
-        fila_paginas.append(pagina)
-
-  return faltas_pagina
+def gera_sequencia_referencias(numero_paginas):
+  sequencia = []
+  for _ in range(numero_paginas):
+    sequencia.append(randint(0, numero_paginas - 1))
+  return sequencia
 
 
-def envelhecimento(referencias_pagina, num_quadros, bits_envelhecimento):
-  faltas_pagina = 0
-  conjunto_quadros = set()
-  registro_idade = {}
-
-  for pagina in referencias_pagina:
-    if pagina not in conjunto_quadros:
-      faltas_pagina += 1
-      if len(conjunto_quadros) < num_quadros:
-        conjunto_quadros.add(pagina)
-        registro_idade[pagina] = 0
-      else:
-        while True:
-          pagina_menor_idade = min(registro_idade, key=registro_idade.get)
-          if pagina_menor_idade in conjunto_quadros:
-            conjunto_quadros.remove(pagina_menor_idade)
-            conjunto_quadros.add(pagina)
-            registro_idade[pagina] = 0
-            break
-          else:
-            del registro_idade[pagina_menor_idade]
-
-    for quadro in list(conjunto_quadros):
-      registro_idade[quadro] >>= 1
-      if quadro == pagina:
-        registro_idade[quadro] |= (1 << (bits_envelhecimento - 1))
-
-  return faltas_pagina
+def paginacao_fifo(sequencia_referencias, numero_molduras):
+  faltas = 0
+  molduras = [-1] * numero_molduras
+  for pagina in sequencia_referencias:
+    if pagina not in molduras:
+      faltas += 1
+      moldura_a_substituir = molduras.pop(0)
+      molduras.append(pagina)
+  return faltas
 
 
-def gerar_referencias_pagina(num_referencias, num_paginas):
-  return [randint(0, num_paginas - 1) for _ in range(num_referencias)]
+def paginacao_envelhecimento(sequencia_referencias, numero_molduras):
+  faltas = 0
+  molduras = [-1] * numero_molduras
+  tempos_de_acesso = [0] * numero_molduras
+  for pagina in sequencia_referencias:
+    if pagina not in molduras:
+      faltas += 1
+      moldura_a_substituir = -1
+      for i in range(numero_molduras):
+        if tempos_de_acesso[i] < tempos_de_acesso[moldura_a_substituir]:
+          moldura_a_substituir = i
+      molduras[moldura_a_substituir] = pagina
+      tempos_de_acesso[moldura_a_substituir] = 0
+    else:
+      tempos_de_acesso[molduras.index(pagina)] = 0
+  return faltas
 
 
 def escrever_em_arquivo(referencias_pagina, nome_arquivo):
-  with open(nome_arquivo, 'w') as arquivo:
-    for pagina in referencias_pagina:
-      arquivo.write(str(pagina) + '\n')
+  try:
+    with open(nome_arquivo, 'r+') as arquivo:
+      arquivo.seek(0, 2)
+      arquivo.write('\nSequência de referências de páginas:\n')
+      for i, pagina in enumerate(referencias_pagina):
+        if i % 10 == 0:
+          arquivo.write('\n')
+        arquivo.write(str(pagina) + ',')
+      arquivo.write('\n\n')
+  except FileNotFoundError:
+    with open(nome_arquivo, 'w') as arquivo:
+      arquivo.write('\nSequência de referências de páginas:\n')
+      for i, pagina in enumerate(referencias_pagina):
+        if i % 10 == 0:
+          arquivo.write('\n')
+        arquivo.write(str(pagina) + ',')
+      arquivo.write('\n\n')
 
 
 def main():
-  num_referencias = 1000
-  num_paginas = 20
-  bits_envelhecimento = 8
-  num_quadros_valores = [1, 2, 3, 4, 5]
 
-  referencias_pagina = gerar_referencias_pagina(num_referencias, num_paginas)
-  escrever_em_arquivo(referencias_pagina, 'referencias_pagina.txt')
+  numero_paginas = 100
+  numero_molduras = 10
 
-  for num_quadros in num_quadros_valores:
-    faltas_pagina_fifo = fifo(referencias_pagina, num_quadros)
-    faltas_pagina_envelhecimento = envelhecimento(referencias_pagina,
-                                                  num_quadros,
-                                                  bits_envelhecimento)
+  for i in range(1000):
+    # Gera a sequência de referências de páginas.
+    sequencia_referencias = gera_sequencia_referencias(numero_paginas)
 
-    print(
-        f'Num Quadros: {num_quadros}, Faltas de Página (FIFO): {faltas_pagina_fifo}, Faltas de Página (Envelhecimento): {faltas_pagina_envelhecimento}'
-    )
+    # Escreve a sequência de referências de páginas no arquivo.
+    escrever_em_arquivo(sequencia_referencias, 'referencias_pagina.txt')
+
+    # Executa a paginação FIFO.
+    faltas_fifo = paginacao_fifo(sequencia_referencias, numero_molduras)
+
+    # Executa a paginação de envelhecimento.
+    faltas_envelhecimento = paginacao_envelhecimento(sequencia_referencias,
+                                                     numero_molduras)
+    print(f"{i+1}º vez executando")
+    print("Número de páginas:", numero_paginas)
+    print("Número de molduras:", numero_molduras)
+    print("Faltas FIFO:", faltas_fifo)
+    print("Faltas envelhecimento:", faltas_envelhecimento)
+    print("\n\n")
 
 
 if __name__ == "__main__":
